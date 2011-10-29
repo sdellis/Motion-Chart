@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Bubble Chart</title>
+<script src="raphael-min.js"></script>
+<script src="jquery.js"></script> 
+<script src="jquery.csv.js"></script> 
+
+<script>
+/**
+ * Function : dump()
+ * Arguments: The data - array,hash(associative array),object
+ *    The level - OPTIONAL
+ * Returns  : The textual representation of the array.
+ * This function was inspired by the print_r function of PHP.
+ * This will accept some data as the argument and return a
+ * text that will be a more readable version of the
+ * array/hash/object that is given.
+ * Docs: http://www.openjs.com/scripts/others/dump_function_php_print_r.php
+ */ 
+function dump(arr,level) {
+	var dumped_text = "";
+	if(!level) level = 0;
+	
+	//The padding given at the beginning of the line.
+	var level_padding = "";
+	for(var j=0;j<level+1;j++) level_padding += "    ";
+	
+	if(typeof(arr) == 'object') { //Array/Hashes/Objects 
+		for(var item in arr) {
+			var value = arr[item];
+			
+			if(typeof(value) == 'object') { //If it is an array,
+				dumped_text += level_padding + "'" + item + "' ...\n";
+				dumped_text += dump(value,level+1);
+			} else {
+				dumped_text += level_padding + "'" + item + "' => \"" + value + "\"\n";
+			}
+		}
+	} else { //Stings/Chars/Numbers etc.
+		dumped_text = "===>"+arr+"<===("+typeof(arr)+")";
+	}
+	return dumped_text;
+}
+
+$(function () {
+	
+	// Creates canvas 420 × 300 and positioned via the #canvas stylesheet rules
+	var paper = Raphael("canvas", 420, 300);
+	paper.safari();
+	$.get('data.txt', function(data) {
+  		array = $.csv("|")(data);
+		var arLen=array.length;
+		
+		////////////////
+		var time_intervals=new Array(); // allows us to create labels for time intervals
+		var timeGroups=new Array(); // allows us to "name" our bubbles
+		
+		// we neeed to be able to loop through the array 
+		// via units of time... so let's move that last value...
+		for ( var i=0, len=arLen; i<len; ++i ){
+			if ($.inArray(array[i][4], time_intervals) == -1) {// if this time interval doesn't exist, add it
+				time_intervals.push(array[i][4]);
+				console.log(array[i][4] + " added to time_intervals");
+				timeGroups[array[i][4]] = new Array();
+			}
+			timeGroups[array[i][4]].push(array[i]);
+
+		}
+		
+		// Let's create our bubbles (in first element of bubbles array)
+		var bubbleNames = new Array();
+	
+		var bubLen=timeGroups[time_intervals[0]].length;
+	
+		for ( var i=0, len=bubLen; i<len; ++i ){
+			bubbleNames[i] = paper.circle(timeGroups[time_intervals[0]][i][0], 300 - timeGroups[time_intervals[0]][i][1], timeGroups[time_intervals[0]][i][2]);
+			bubbleNames[i].attr("fill", timeGroups[time_intervals[0]][i][3]);
+			bubbleNames[i].attr("fill-opacity",0.3); 
+			bubbleNames[i].attr("stroke", "#fff");
+			// bubbleNames[i].scale(1,1); 
+		}
+		
+		a1 = dump(timeGroups);
+		$("#dump").append(a1);
+		
+		// ANIMATE!
+		// for each time interval (after first, hence i=1), animate each bubble
+		var bLen=timeGroups.length;
+		var timeLen=time_intervals.length;
+	    //console.log("bLen = " + bubbles.valueOf());
+		
+		// we need to figure out how many keyframes there are for each bubble..
+		// we can do this by subtracting one from the number of time intervals (since we already painted one)
+		// however, because we started our bubbles array with 
+		var keyframeSplit = Math.ceil(100/(timeLen - 1));
+		console.log("keyframeSplit = " + keyframeSplit);
+
+		var colOrder=["cx","cy","r"]; // this is the order of the column values in our spreadsheet
+		
+        var totalBubbles=bubbleNames.length;
+		for ( var j=0, len=totalBubbles; j<=len; ++j ){ // for each bubble we created...
+			var str =  'bubbleNames['+j+'].stop()';
+			for ( var colnum=0; colnum <3; ++colnum ){ // each column animates with a set of keyframes
+				var frame = 0;
+				str += '.animate({';
+				for ( var i=1, len=bLen-1; i<len; ++i ){ // create keyframes
+					frame = frame + keyframeSplit;
+					str += '"'+frame+'%": {'+colOrder[colnum]+':';
+					if(colOrder[colnum]=="cy"){ str += '300 -';} // remember, we need to subtract the canvas height from y
+					str += 'timeGroups['+time_intervals[i]+']['+j+']['+colnum+']},';
+					// ++a;
+				}
+				str += '}, 5000)';
+			}
+			str += ';';
+			console.log(str);	
+			eval(str);	
+		}
+		
+	});
+	
+});
+ </script>
+ <style type="text/css" media="screen"> 
+    #canvas {
+		background-color:#ccc;
+        color: #333;
+		border:#000 dotted;
+        left: 500px;
+        position: absolute;
+        top: 200px;
+    }
+</style> 
+</head>
+<body>
+<div id="canvas"></div> 
+<pre id="dump"></pre>
+</body>
+</html>
